@@ -90,7 +90,7 @@ const movieResolvers = {
         options,
       }: { filters: MovieQueryFilters; options: MovieQueryOptions }
     ) => {
-      const { search } = filters;
+      const { search } = filters || {};
       const { sortBy, sortOrder, limit, skip } = options;
 
       // Query options based on the provided filters and options
