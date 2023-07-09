@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import { SignupInput, LoginInput } from "../schema/user.graphql";
-import { generateToken } from "utilis/auth";
+import { PrismaClient, User } from "@prisma/client";
+import { gql } from "apollo-server";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -9,87 +8,211 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 
+interface SignupInput {
+  username: string;
+  email: string;
+  password: string;
+}
+
+interface LoginInput {
+  email: string;
+  password: string;
+}
+
+interface UpdateUserInput {
+  username: string;
+  email: string;
+  password: string;
+}
+
+interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+const typeDefs = gql`
+  type User {
+    id: ID!
+    username: String!
+    email: String!
+    movies: [Movie!]!
+  }
+
+  type AuthPayload {
+    token: String!
+    user: User!
+  }
+
+  input SignupInput {
+    username: String!
+    email: String!
+    password: String!
+  }
+
+  input LoginInput {
+    email: String!
+    password: String!
+  }
+
+  input UpdateUserInput {
+    username: String
+    email: String
+    password: String
+  }
+
+  input ChangePasswordInput {
+    currentPassword: String!
+    newPassword: String!
+  }
+
+  type Query {
+    users: [User!]!
+    user(id: ID!): User
+  }
+
+  type Mutation {
+    signup(data: SignupInput!): AuthPayload!
+    login(data: LoginInput!): AuthPayload!
+    updateUser(id: ID!, data: UpdateUserInput!): User!
+    changePassword(id: ID!, data: ChangePasswordInput!): User!
+    deleteUser(id: ID!): User!
+  }
+`;
+
+const JWT_SECRET = process.env.JWT_SECRET || "secret-key";
+
+const generateToken = (user: User): string => {
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+    expiresIn: "1d",
+  });
+  return token;
+};
+
 const userResolvers = {
   Query: {
-    //user queries go here
+    users: () => {
+      return prisma.user.findMany();
+    },
+    user: (_: any, { id }: { id: number }) => {
+      return prisma.user.findUnique({
+        where: { id },
+        include: { movies: true }, // Include the user's movies in the response
+      });
+    },
   },
-
   Mutation: {
-    //Sign user up and generate token
     signup: async (_: any, { data }: { data: SignupInput }) => {
       const { username, email, password } = data;
-      const user = await prisma.user.create({
+
+      // Check if the user with the same email already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+      if (existingUser) {
+        throw new Error("Email already exists");
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create the user
+      const newUser = await prisma.user.create({
         data: {
           username,
           email,
-          password,
+          password: hashedPassword,
         },
       });
 
-      const token = generateToken(user.id);
+      // Generate authentication token
+      const token = generateToken(newUser);
+
       return {
         token,
-        user,
+        user: newUser,
       };
     },
-
-    //Login
     login: async (_: any, { data }: { data: LoginInput }) => {
       const { email, password } = data;
-      const user = await prisma.user.findUnique({ where: { email } });
 
+      // Check if the user with the email exists
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
       if (!user) {
-        throw new Error("Invalid login credentials");
+        throw new Error("Invalid email or password");
       }
 
-      const passwordMatch = await bcrypt.compare(password, user.password);
-
-      if (!passwordMatch) {
-        throw new Error("Invalid login credentials");
+      // Compare the password with the stored hash
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        throw new Error("Invalid email or password");
       }
 
-      const token = generateToken(user.id);
+      // Generate authentication token
+      const token = generateToken(user);
 
       return {
         token,
         user,
       };
     },
-
-    //Change Password
+    updateUser: async (
+      _: any,
+      { id, data }: { id: number; data: UpdateUserInput }
+    ) => {
+      return prisma.user.update({
+        where: { id },
+        data,
+      });
+    },
     changePassword: async (
       _: any,
-      {
-        oldPassword,
-        newPassword,
-      }: { oldPassword: string; newPassword: string },
-      { userId }: { userId: number | null }
+      { id, data }: { id: number; data: ChangePasswordInput }
     ) => {
-      if (!userId) {
-        throw new Error("Authentication required");
-      }
+      const { currentPassword, newPassword } = data;
 
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-
+      const user = await prisma.user.findUnique({
+        where: { id },
+      });
       if (!user) {
         throw new Error("User not found");
       }
 
-      const passwordMatch = await bcrypt.compare(oldPassword, user.password);
-
-      if (!passwordMatch) {
+      // Compare the current password with the stored hash
+      const validPassword = await bcrypt.compare(
+        currentPassword,
+        user.password
+      );
+      if (!validPassword) {
         throw new Error("Invalid password");
       }
 
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: { password: hashedPassword },
-      });
+      // Hash the password
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-      return updatedUser;
+      return prisma.user.update({
+        where: { id },
+        data: {
+          password: hashedNewPassword,
+        },
+      });
+    },
+    deleteUser: async (_: any, { id }: { id: number }) => {
+      return prisma.user.delete({
+        where: { id },
+      });
+    },
+  },
+  User: {
+    movies: (parent: User) => {
+      return prisma.user
+        .findUnique({
+          where: { id: parent.id },
+        })
+        .movies();
     },
   },
 };
 
-export default userResolvers;
+export { typeDefs, userResolvers };

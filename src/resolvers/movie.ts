@@ -1,128 +1,190 @@
 import { PrismaClient } from "@prisma/client";
-import { CreateMovieInput, UpdateMovieInput } from "../schema/movie.graphql";
+import { gql } from "apollo-server";
 
 const prisma = new PrismaClient();
-const DEFAULT_PAGE_SIZE = 10;
+
+// Input types for creating and updating a movie
+interface CreateMovieInput {
+  movieName: string;
+  description: string;
+  director: string;
+  releaseDate: Date;
+  userId: number;
+}
+
+interface UpdateMovieInput {
+  id: number;
+  movieName?: string;
+  description?: string;
+  director?: string;
+  releaseDate?: Date;
+}
+
+interface MovieQueryFilters {
+  search?: string;
+}
+
+interface MovieQueryOptions {
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  limit?: number;
+  skip?: number;
+}
+
+const typeDefs = gql`
+  scalar Date
+
+  type Movie {
+    id: ID!
+    movieName: String!
+    description: String!
+    director: String!
+    releaseDate: Date!
+    user: User!
+  }
+
+  input CreateMovieInput {
+    movieName: String!
+    description: String!
+    director: String!
+    releaseDate: Date!
+  }
+
+  input UpdateMovieInput {
+    id: ID!
+    movieName: String
+    description: String
+    director: String
+    releaseDate: Date
+  }
+
+  input MovieQueryFilters {
+    search: String
+  }
+
+  input MovieQueryOptions {
+    sortBy: String
+    sortOrder: String
+    limit: Int
+    skip: Int
+  }
+
+  type Query {
+    movies(filters: MovieQueryFilters, options: MovieQueryOptions): [Movie!]!
+    movie(id: ID!): Movie
+  }
+
+  type Mutation {
+    createMovie(data: CreateMovieInput!): Movie!
+    updateMovie(data: UpdateMovieInput!): Movie!
+    deleteMovie(id: ID!): Movie
+  }
+`;
 
 const movieResolvers = {
   Query: {
-    //Get all movies
     movies: async (
       _: any,
       {
-        sortBy,
-        filter,
-        skip,
-        take,
-      }: { sortBy?: string; filter?: string; skip?: number; take?: number }
+        filters,
+        options,
+      }: { filters: MovieQueryFilters; options: MovieQueryOptions }
     ) => {
-      const movies = await prisma.movie.findMany({
-        orderBy: { [sortBy || "id"]: "asc" },
-        where: {
-          OR: [
-            { movieName: { contains: filter || "", mode: "insensitive" } },
-            { description: { contains: filter || "", mode: "insensitive" } },
-          ],
-        },
-        skip: skip || 0,
-        take: take || DEFAULT_PAGE_SIZE,
-      });
+      const { search } = filters;
+      const { sortBy, sortOrder, limit, skip } = options;
 
+      // Query options based on the provided filters and options
+      const queryOptions: any = {};
+
+      if (search) {
+        queryOptions.where = {
+          OR: [
+            { movieName: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        };
+      }
+
+      if (sortBy) {
+        queryOptions.orderBy = { [sortBy]: sortOrder || "asc" };
+      }
+
+      if (limit) {
+        queryOptions.take = limit;
+      }
+
+      if (skip) {
+        queryOptions.skip = skip;
+      }
+
+      // Fetch the movies based on the query options
+      const movies = await prisma.movie.findMany(queryOptions);
       return movies;
     },
-
-    //Get a single movie
-    movie: async (_: any, { id }: { id: string }) => {
-      const movie = await prisma.movie.findUnique({
-        where: { id: Number(id) },
-      });
-
+    movie: (_: any, { id }: { id: number }) => {
+      // Fetch a specific movie by its ID
+      const movie = prisma.movie.findUnique({ where: { id } });
       return movie;
     },
   },
-
   Mutation: {
-    //Create a new movie
     createMovie: async (
       _: any,
       { data }: { data: CreateMovieInput },
-      { userId }: { userId: number | null }
+      context: { userId: number }
     ) => {
-      if (!userId) {
-        throw new Error("Authentication required");
+      // Check if the user is authenticated
+      if (!context.userId) {
+        throw new Error("You are not authenticated");
       }
 
-      const { releaseDate, ...movieData } = data;
-
-      const newMovie = await prisma.movie.create({
-        data: {
-          ...movieData,
-          releaseDate: new Date(releaseDate).toISOString(), //Convert to ISO String format
-          userId: Number(userId),
-        },
-      });
-
-      return newMovie;
+      // Create a new movie
+      const movie = await prisma.movie.create({ data });
+      return movie;
     },
-
-    //Update a movie
     updateMovie: async (
       _: any,
-      { id, data }: { id: string; data: UpdateMovieInput },
-      { userId }: { userId: number }
+      { data }: { data: UpdateMovieInput },
+      context: { userId: number }
     ) => {
-      if (!userId) {
-        throw new Error("Authentication required");
+      // Check if the user is authenticated
+      if (!context.userId) {
+        throw new Error("You are not authenticated");
       }
 
-      const existingMovie = await prisma.movie.findUnique({
-        where: { id: Number(id) },
-      });
-      if (!existingMovie) {
-        throw new Error("Movie not found");
-      }
+      const { id, ...movieData } = data;
 
-      if (existingMovie.userId !== userId) {
-        throw new Error("You are not authorized to update this movie");
-      }
-
+      // Update the specified movie
       const updatedMovie = await prisma.movie.update({
-        where: { id: Number(id) },
-        data,
+        where: { id },
+        data: movieData,
       });
-
       return updatedMovie;
     },
-
-    //Delete a movie
     deleteMovie: async (
       _: any,
-      { id }: { id: string },
-      { userId }: { userId: number }
+      { id }: { id: number },
+      context: { userId: number }
     ) => {
-      if (!userId) {
-        throw new Error("Authentication required");
+      // Check if the user is authenticated
+      if (!context.userId) {
+        throw new Error("You are not authenticated");
       }
 
-      const movie = await prisma.movie.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!movie) {
-        throw new Error("Movie not found");
-      }
-
-      if (movie.userId !== userId) {
-        throw new Error("You are not authorized to delete this movie");
-      }
-
-      const deletedMovie = await prisma.movie.delete({
-        where: { id: Number(id) },
-      });
-
+      // Delete the specified movie
+      const deletedMovie = await prisma.movie.delete({ where: { id } });
       return deletedMovie;
+    },
+  },
+  Movie: {
+    user: (parent: any) => {
+      return prisma.movie
+        .findUnique({
+          where: { id: parent.id },
+        })
+        .user();
     },
   },
 };
 
-export default movieResolvers;
+export { typeDefs, movieResolvers };
