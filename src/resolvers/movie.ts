@@ -48,6 +48,7 @@ const typeDefs = gql`
     description: String!
     director: String!
     releaseDate: Date!
+    userId: Int!
   }
 
   input UpdateMovieInput {
