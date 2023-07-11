@@ -35,7 +35,7 @@ const typeDefs = gql`
   scalar Date
 
   type Movie {
-    id: ID!
+    id: Int!
     movieName: String!
     description: String!
     director: String!
@@ -52,7 +52,7 @@ const typeDefs = gql`
   }
 
   input UpdateMovieInput {
-    id: ID!
+    id: Int!
     movieName: String
     description: String
     director: String
@@ -72,13 +72,13 @@ const typeDefs = gql`
 
   type Query {
     movies(filters: MovieQueryFilters, options: MovieQueryOptions): [Movie!]!
-    movie(id: ID!): Movie
+    movie(id: Int!): Movie
   }
 
   type Mutation {
     createMovie(data: CreateMovieInput!): Movie!
     updateMovie(data: UpdateMovieInput!): Movie!
-    deleteMovie(id: ID!): Movie
+    deleteMovie(id: Int!): Movie
   }
 `;
 
@@ -122,9 +122,9 @@ const movieResolvers = {
       const movies = await prisma.movie.findMany(queryOptions);
       return movies;
     },
-    movie: (_: any, { id }: { id: number }) => {
+    movie: async (_: any, { id }: { id: number }) => {
       // Fetch a specific movie by its ID
-      const movie = prisma.movie.findUnique({ where: { id } });
+      const movie = await prisma.movie.findUnique({ where: { id } });
       return movie;
     },
   },
@@ -155,13 +155,20 @@ const movieResolvers = {
 
       const { id, ...movieData } = data;
 
+      // Convert releaseDate to Date object if it exists
+      if (movieData.releaseDate) {
+        movieData.releaseDate = new Date(movieData.releaseDate);
+      }
+
       // Update the specified movie
       const updatedMovie = await prisma.movie.update({
         where: { id },
         data: movieData,
       });
+
       return updatedMovie;
     },
+
     deleteMovie: async (
       _: any,
       { id }: { id: number },
