@@ -2,32 +2,32 @@
 
 The Movie Manager API is a GraphQL API that allows you to manage movies and users. It provides functionality to create, update, and delete movies, as well as user authentication and authorization.
 
-# Tech Stack
+## Tech Stack
 
 The Movie Manager API is built using the following technologies:
 
-Node.js
-TypeScript
-Apollo Server
-Prisma
-PostgreSQL
-bcrypt
-jsonwebtoken
-dotenv
+- Node.js
+- TypeScript
+- Apollo Server
+- Prisma
+- PostgreSQL
+- bcrypt
+- jsonwebtoken
+- dotenv
 
-# Dependencies
+## Dependencies
 
 The Movie Manager API relies on the following dependencies:
 
-apollo-server-express: ^2.25.2
-bcrypt: ^5.0.1
-dotenv: ^10.0.0
-graphql: ^15.7.2
-jsonwebtoken: ^8.5.1
-prisma: ^3.2.1
-@prisma/client: ^3.2.1
+- apollo-server-express: ^2.25.2
+- bcrypt: ^5.0.1
+- dotenv: ^10.0.0
+- graphql: ^15.7.2
+- jsonwebtoken: ^8.5.1
+- prisma: ^3.2.1
+- @prisma/client: ^3.2.1
 
-# Getting Started
+## Getting Started
 
 To use the Movie Manager API, follow these steps:
 
@@ -57,25 +57,25 @@ npm start
 
 The API server will start at http://localhost:4000.
 
-# Authentication
+## Authentication
 
 To access certain API endpoints, you need to include an authentication token in the request headers. Follow these steps to obtain an authentication token:
 
-Register a new user:
+1. Register a new user:
 
 Send a signup mutation request with the user's username, email, and password.
 
-Obtain an authentication token:
+2. Obtain an authentication token:
 
 Use the login mutation request with the user's email and password to obtain an authentication token.
 
-Include the authentication token:
+3. Include the authentication token:
 
 Include the authentication token in the request headers using the Authorization header with the value Bearer <token>. Replace <token> with the actual authentication token.
 
-# Endpoints
+## Endpoints
 
-Users
+# Users
 
 signup
 Creates a new user.
@@ -162,7 +162,8 @@ email
 }
 ```
 
-Movies
+# Movies
+
 movies
 Retrieves a list of movies.
 
