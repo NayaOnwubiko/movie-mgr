@@ -77,7 +77,8 @@ Include the authentication token in the request headers using the Authorization 
 
 # Users
 
-signup
+### signup
+
 Creates a new user.
 
 ```bash
@@ -97,7 +98,8 @@ email
 }
 ```
 
-login
+### login
+
 Logs in a user and returns an authentication token.
 
 ```bash
@@ -116,7 +118,8 @@ email
 }
 ```
 
-updateUser
+### updateUser
+
 Updates a user's information.
 
 ```bash
@@ -133,7 +136,8 @@ email
 }
 ```
 
-changePassword
+### changePassword
+
 Changes a user's password.
 
 ```bash
@@ -149,7 +153,8 @@ email
 }
 ```
 
-deleteUser
+### deleteUser
+
 Deletes a user.
 
 ```bash
@@ -164,7 +169,8 @@ email
 
 # Movies
 
-movies
+### movies
+
 Retrieves a list of movies.
 
 ```bash
@@ -184,7 +190,8 @@ email
 }
 ```
 
-movie
+### movie
+
 Retrieves a specific movie by ID.
 
 ```bash
@@ -204,7 +211,8 @@ email
 }
 ```
 
-createMovie
+### createMovie
+
 Creates a new movie.
 
 ```bash
@@ -229,7 +237,8 @@ email
 }
 ```
 
-updateMovie
+### updateMovie
+
 Updates a movie's information.
 
 ```bash
@@ -255,10 +264,11 @@ email
 }
 ```
 
-deleteMovie
+### deleteMovie
+
 Deletes a movie.
 
-```javascript
+```bash
 mutation DeleteMovie {
 deleteMovie(id: 1) {
 id
@@ -273,5 +283,4 @@ email
 }
 }
 }
-
 ```
