@@ -258,7 +258,7 @@ email
 deleteMovie
 Deletes a movie.
 
-```bash
+```javascript
 mutation DeleteMovie {
 deleteMovie(id: 1) {
 id
@@ -273,4 +273,5 @@ email
 }
 }
 }
+
 ```
